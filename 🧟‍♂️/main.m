@@ -6,11 +6,21 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "KTBetterZombie.h"
+
+@interface OTQ : NSObject
+@end
+@implementation OTQ
+@end
 
 int main(int argc, const char * argv[]) {
+    
+    [KTBetterZombie action];
+    
+    __unsafe_unretained OTQ *obj = nil;
     @autoreleasepool {
-        // insert code here...
-        NSLog(@"Hello, World!");
+        obj = [OTQ new];
     }
+    [obj description];
     return 0;
 }

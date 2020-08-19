@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4274559A24ED484300832169 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4274559924ED484300832169 /* main.m */; };
+		427455A224ED485400832169 /* KTBetterZombie.m in Sources */ = {isa = PBXBuildFile; fileRef = 427455A124ED485400832169 /* KTBetterZombie.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,6 +26,8 @@
 /* Begin PBXFileReference section */
 		4274559624ED484300832169 /* 🧟‍♂️ */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "🧟‍♂️"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4274559924ED484300832169 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		427455A024ED485400832169 /* KTBetterZombie.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KTBetterZombie.h; sourceTree = "<group>"; };
+		427455A124ED485400832169 /* KTBetterZombie.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KTBetterZombie.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +61,8 @@
 			isa = PBXGroup;
 			children = (
 				4274559924ED484300832169 /* main.m */,
+				427455A024ED485400832169 /* KTBetterZombie.h */,
+				427455A124ED485400832169 /* KTBetterZombie.m */,
 			);
 			path = "🧟‍♂️";
 			sourceTree = "<group>";
@@ -118,6 +123,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				427455A224ED485400832169 /* KTBetterZombie.m in Sources */,
 				4274559A24ED484300832169 /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
