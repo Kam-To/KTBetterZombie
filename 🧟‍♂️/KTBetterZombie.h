@@ -10,7 +10,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface KTBetterZombie : NSObject
-+ (void)action;
++ (void)traceObjectWithClassName:(const char *)clzName;
 @end
 
 NS_ASSUME_NONNULL_END

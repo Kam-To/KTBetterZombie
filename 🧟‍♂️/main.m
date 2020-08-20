@@ -26,7 +26,7 @@ void bar() {
 }
 
 int main(int argc, const char * argv[]) {
-    [KTBetterZombie action];
+    [KTBetterZombie traceObjectWithClassName:"OTQ"];
     bar();
     return 0;
 }

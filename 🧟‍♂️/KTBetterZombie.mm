@@ -77,7 +77,7 @@ public:
             uintptr_t offset = address - (uintptr_t)dlInfo.dli_saddr;
             
             const char* sname = dlInfo.dli_sname;
-            printf("%-30s0x%012lx %s + %lu\n" ,fname, address, sname, offset);
+            printf("%-21s0x%012lx %s + %lu\n" ,fname, address, sname, offset);
         }
     }
     
@@ -92,7 +92,7 @@ public:
 static unordered_map<string, RecordEntry *> gMD5ToEntry;
 static unordered_map<void *, string> gPtrToMD5;
 static os_unfair_lock gLock = OS_UNFAIR_LOCK_INIT;
-
+static const char *gTargetClzName = NULL;
 #define KTLock os_unfair_lock_lock(&gLock);
 #define KTUnlock os_unfair_lock_unlock(&gLock);
 
@@ -100,7 +100,9 @@ typedef void(*KTIMP)(__unsafe_unretained id, SEL);
 
 @implementation KTBetterZombie
 
-+ (void)action {
++ (void)traceObjectWithClassName:(const char *)clzName {
+    if (!strlen(clzName)) return;
+    gTargetClzName = clzName;
     BOOL enableZombie = [NSProcessInfo.processInfo.environment objectForKey:@"NSZombieEnabled"].boolValue;
     
     if (!enableZombie) return; // only enable while zombie enable
@@ -131,8 +133,11 @@ typedef void(*KTIMP)(__unsafe_unretained id, SEL);
 
 static KTIMP gOriginalDeallocIMP;
 static void ZombieDealloc(__unsafe_unretained id _self, SEL func){
+    const char *clzName = object_getClassName(_self);
+    if (strcmp(gTargetClzName, clzName) == 0) {
+        RecordBacktrace((__bridge void *)_self);
+    }
     gOriginalDeallocIMP(_self, func);
-    RecordBacktrace((__bridge void *)_self);
 }
 
 static void RebaseBacktrace(vm_address_t **stack, int depth) {
