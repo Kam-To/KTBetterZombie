@@ -21,6 +21,13 @@
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 
+#include <execinfo.h>
+#include <unordered_map>
+#include <string>
+
+#import <CommonCrypto/CommonDigest.h>
+#import <os/lock.h>
+
 #ifdef __LP64__
 typedef struct mach_header_64 mach_header_t;
 typedef struct segment_command_64 segment_command_t;
@@ -38,6 +45,56 @@ typedef struct nlist nlist_t;
 #ifndef SEG_DATA_CONST
 #define SEG_DATA_CONST  "__DATA_CONST"
 #endif
+
+using namespace std;
+
+class RecordEntry {
+private:
+    vm_address_t *mBacktrace;
+    int mBacktraceDepth;
+public:
+    RecordEntry(vm_address_t **backtrace, int backtraceDepth) {
+        mBacktrace = (vm_address_t *)malloc(sizeof(vm_address_t *) * backtraceDepth);
+        memcpy(mBacktrace, backtrace, backtraceDepth * sizeof(vm_address_t));
+        mBacktraceDepth = backtraceDepth;
+    }
+    
+    ~RecordEntry() {
+        free(mBacktrace);
+    }
+    
+    void Dump() {
+        printf("Dumpping dealloc backtrace...\n");
+        Dl_info symbolicated[mBacktraceDepth];
+        for (int i = 0; i < mBacktraceDepth; i++) {
+            
+            dladdr((void *)mBacktrace[i], &symbolicated[i]);
+        
+            uintptr_t address = mBacktrace[i];
+            Dl_info dlInfo = symbolicated[i];
+            
+            const char* fname = LastPath(dlInfo.dli_fname);
+            uintptr_t offset = address - (uintptr_t)dlInfo.dli_saddr;
+            
+            const char* sname = dlInfo.dli_sname;
+            printf("%-30s0x%012lx %s + %lu\n" ,fname, address, sname, offset);
+        }
+    }
+    
+    const char *LastPath(const char* const path) {
+        if(path == NULL) return NULL;
+        const char *lastFile = strrchr(path, '/');
+        return lastFile == NULL ? path : lastFile + 1;
+    }
+};
+
+
+static unordered_map<string, RecordEntry *> gMD5ToEntry;
+static unordered_map<void *, string> gPtrToMD5;
+static os_unfair_lock gLock = OS_UNFAIR_LOCK_INIT;
+
+#define KTLock os_unfair_lock_lock(&gLock);
+#define KTUnlock os_unfair_lock_unlock(&gLock);
 
 typedef void(*KTIMP)(__unsafe_unretained id, SEL);
 
@@ -59,19 +116,68 @@ typedef void(*KTIMP)(__unsafe_unretained id, SEL);
 }
 
 - (id)forwardingTargetForSelector:(SEL)aSelector {
-    // TODO: dump dealloc stack for self
-    printf("deallocting callstack\n");
-    return nil;
+    KTLock
+    auto it = gPtrToMD5.find((__bridge void *)self);
+    if (it != gPtrToMD5.end()) {
+        string MD5 = it->second;
+        auto itt = gMD5ToEntry.find(MD5);
+        if (itt != gMD5ToEntry.end()) {
+            itt->second->Dump();
+        }
+    }
+    KTUnlock
+    return nil; // let it go
 }
 
 static KTIMP gOriginalDeallocIMP;
 static void ZombieDealloc(__unsafe_unretained id _self, SEL func){
-    // TODO: save the dealloc stack for _self
     gOriginalDeallocIMP(_self, func);
+    RecordBacktrace((__bridge void *)_self);
 }
 
+static void RebaseBacktrace(vm_address_t **stack, int depth) {
+    for (int i = 0; i < depth; i++) {
+        vm_address_t *stackAddrPtr = stack[i];
+        Dl_info dfInfo;
+        dladdr((void *)stackAddrPtr, &dfInfo);
+        stack[i] = (vm_address_t *)dfInfo.dli_saddr;
+    }
+}
+
+static void RecordBacktrace(void *objPtr) {
+    static int max_stack_depth = 64; // that's enought, I guessssss....
+    vm_address_t *stack[max_stack_depth];
+    vm_address_t *rebasedStack[max_stack_depth];
+    int depth = backtrace((void**)stack, max_stack_depth);
+    memcpy(rebasedStack, stack, sizeof(stack));
+    RebaseBacktrace(rebasedStack, depth);
+    int skip = 2;
+    KTLock
+    string MD5Str = MD5ForStack(rebasedStack, skip, depth);
+    if (gMD5ToEntry.find(MD5Str) == gMD5ToEntry.end()) { // not found
+        RecordEntry *entry = new RecordEntry(stack + skip, depth - skip);
+        gMD5ToEntry.insert(pair<string, RecordEntry *>(MD5Str, entry));
+    }
+    gPtrToMD5.insert(pair<void *, string>(objPtr, MD5Str));
+    KTUnlock
+}
+
+static string MD5ForStack(vm_address_t **stack, int start, int end) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    CC_MD5_CTX ctx;
+    CC_MD5_Init(&ctx);
+    CC_MD5_Update(&ctx, stack + start, (end - start) * sizeof(vm_address_t *));
+    unsigned char r[CC_MD5_DIGEST_LENGTH] = {'\0'};
+    CC_MD5_Final(r, &ctx);
+#pragma GCC diagnostic pop
+    string MD5Str((char *)r, 16);
+    return MD5Str;
+}
+
+
 static BOOL (*gOriClassRespondsToSelector)(Class _Nullable cls, SEL _Nonnull sel);
-static BOOL kt_class_respondsToSelector(Class _Nullable cls, SEL _Nonnull sel) {
+static BOOL kTClassRespondsToSelector(Class _Nullable cls, SEL _Nonnull sel) {
     const char *className = class_getName(cls);
     const char *zombiePrefix = "_NSZombie_";
     size_t prefixLen = strlen(zombiePrefix);
@@ -93,7 +199,7 @@ static void RebindClassRepsondsToSelector() {
     Dl_info info;
     if (dladdr(header, &info) == 0) return;
     
-    void *replacmentFunction = kt_class_respondsToSelector;
+    void *replacmentFunction = (void *)kTClassRespondsToSelector;
     void **origFunctionPtr = (void **)&gOriClassRespondsToSelector;
     
     segment_command_t *curSegCmd;

@@ -13,14 +13,20 @@
 @implementation OTQ
 @end
 
-int main(int argc, const char * argv[]) {
-    
-    [KTBetterZombie action];
-    
+void foo() {
     __unsafe_unretained OTQ *obj = nil;
     @autoreleasepool {
         obj = [OTQ new];
     }
     [obj description];
+}
+
+void bar() {
+    foo();
+}
+
+int main(int argc, const char * argv[]) {
+    [KTBetterZombie action];
+    bar();
     return 0;
 }
