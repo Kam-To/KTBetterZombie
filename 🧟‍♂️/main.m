@@ -13,7 +13,7 @@
 @implementation OTQ
 @end
 
-void foo() {
+void foo(void) {
     __unsafe_unretained OTQ *obj = nil;
     @autoreleasepool {
         obj = [OTQ new];
@@ -21,7 +21,7 @@ void foo() {
     [obj description];
 }
 
-void bar() {
+void bar(void) {
     foo();
 }
 

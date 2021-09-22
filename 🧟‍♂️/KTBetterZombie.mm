@@ -46,6 +46,11 @@ typedef struct nlist nlist_t;
 #define SEG_DATA_CONST  "__DATA_CONST"
 #endif
 
+
+#ifndef SEG_AUTH_CONST
+#define SEG_AUTH_CONST  "__AUTH_CONST"
+#endif
+
 using namespace std;
 
 class RecordEntry {
@@ -241,7 +246,10 @@ static void RebindClassRepsondsToSelector() {
     for (uint i = 0; i < header->ncmds; i++, cur += curSegCmd->cmdsize) {
         curSegCmd = (segment_command_t *)cur;
         if (curSegCmd->cmd == LC_SEGMENT_ARCH_DEPENDENT) {
-            if (strcmp(curSegCmd->segname, SEG_DATA) != 0 && strcmp(curSegCmd->segname, SEG_DATA_CONST) != 0) continue;
+            if (strcmp(curSegCmd->segname, SEG_DATA) != 0
+                && strcmp(curSegCmd->segname, SEG_DATA_CONST) != 0
+                && strcmp(curSegCmd->segname, SEG_AUTH_CONST) != 0) continue;
+            
             for (uint j = 0; j < curSegCmd->nsects; j++) {
                 section_t *sect = (section_t *)(cur + sizeof(segment_command_t)) + j;
                 bool sym_ptr = (sect->flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS || (sect->flags & SECTION_TYPE) == S_NON_LAZY_SYMBOL_POINTERS;
